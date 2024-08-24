@@ -79,11 +79,10 @@ export default defineComponent({
           const image = imageCaptureService.extractImage();
           const transmittedImage = document.getElementById("transmitted") as HTMLCanvasElement;
           const context = transmittedImage.getContext("2d")
-          context!.putImageData(image.ImageData!, 0, 0);
-          image.ImageData = null;
+          context!.putImageData(image.imageData!, 0, 0);
+          delete image.imageData;
 
-
-          previousNode.value = await webSocketService.trackNode(previousNode?.Id, position.value.latitude, position.value.longitude, position.value.altitude, image);
+          previousNode.value = await webSocketService.trackNode(previousNode?.id, position.value.latitude, position.value.longitude, position.value.altitude, image);
           succeededUploads.value++;
         } catch (error: any) {
           console.error(error);

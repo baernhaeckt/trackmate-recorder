@@ -1,6 +1,6 @@
 
 export interface TransformationVector {
-  X: Number,
-  Y: Number,
-  Z: Number
+  x: Number,
+  y: Number,
+  z: Number
 }

@@ -81,10 +81,10 @@ export class ImageCaptureService {
     const dataUrl = resizedCanvas.toDataURL('image/jpeg', 0.7);
 
     return {
-      TrackNodeId: null,
-      ImageDataBase64: dataUrl.replace('data:image/jpeg;base64,', ''),
-      ImageData: resizedContext!.getImageData(0, 0, 256, 256),
-      MimeType: 'image/jpeg'
+      trackNodeId: undefined,
+      imageDataBase64: dataUrl.replace('data:image/jpeg;base64,', ''),
+      imageData: resizedContext!.getImageData(0, 0, 256, 256),
+      mimeType: 'image/jpeg'
     };
   }
 }

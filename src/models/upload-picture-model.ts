@@ -1,7 +1,7 @@
 
 export interface UploadPictureModel {
-  TrackNodeId: string | null,
-  ImageDataBase64: string,
-  ImageData: ImageData | null,
-  MimeType: string
+  trackNodeId: string | undefined,
+  imageDataBase64: string,
+  imageData: ImageData | undefined,
+  mimeType: string
 }

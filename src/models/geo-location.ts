@@ -1,5 +1,6 @@
 
 export interface GeoLocation {
-  Latitude: number,
-  Lognitude: number
+  latitude: number,
+  longitude: number,
+  altitude: number
 }
