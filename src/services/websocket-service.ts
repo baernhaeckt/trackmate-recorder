@@ -1,5 +1,6 @@
 
 import type { TrackNodeModel } from "@/models/track-node-model";
+import type { UploadPictureModel } from "@/models/upload-picture-model";
 import * as signalR from "@microsoft/signalr";
 
 export class WebSocketService {
@@ -22,8 +23,13 @@ export class WebSocketService {
     await this._trackNodeHub?.stop();
   }
 
-  async trackNode(lat: number, lon: number, alt: number, image: ImageData) {
+  async trackNode(previousTrackNodeId: string, lat: number, lon: number, alt: number, image: UploadPictureModel) {
+    if (!this._trackNodeHub || this._trackNodeHub.state !== signalR.HubConnectionState.Connected) {
+      throw new Error("The WebSocket connection is not yet established.");
+    }
+
     const createTrackNodeModel = {
+      PreviousTrackNodeId: previousTrackNodeId,
       Location: {
         Latitude: lat,
         Longitude: lon,
@@ -33,13 +39,20 @@ export class WebSocketService {
         X: 0,
         Y: 0,
         Z: 0
+      },
+      Orientation: {
+        Alpha: 0,
+        Beta: 0,
+        Gamma: 0
       }
     };
 
     const trackNode = await this._trackNodeHub?.invoke<TrackNodeModel>("CreateTrackNode", createTrackNodeModel);
-    const imageData = this.imageDataToByteArray(image);
+    image.TrackNodeId = trackNode?.Id;
 
-    await this._trackNodeHub?.invoke("UploadPictureChunkForTrackNode", trackNode?.Id, "image/jpeg", imageData, true);
+    await this._trackNodeHub?.invoke("UploadPictureChunkForTrackNode", image);
+
+    return trackNode;
   }
 
   private imageDataToByteArray(imageData: ImageData): Uint8Array {

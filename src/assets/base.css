@@ -56,6 +56,7 @@
   box-sizing: border-box;
   margin: 0;
   font-weight: normal;
+  font-size: 14px;
 }
 
 body {
@@ -65,7 +66,7 @@ body {
   transition:
     color 0.5s,
     background-color 0.5s;
-  line-height: 1.6;
+  line-height: 1.2;
   font-family:
     Inter,
     -apple-system,
@@ -79,7 +80,7 @@ body {
     'Droid Sans',
     'Helvetica Neue',
     sans-serif;
-  font-size: 15px;
+  font-size: 12px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

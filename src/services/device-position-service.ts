@@ -1,33 +1,43 @@
-
+import type { DevicePositionModel } from "@/models/device-position-model";
 import KalmanFilter from 'kalmanjs'; // Importing Kalman filter
 
 export class DevicePositionService {
-
   private _currentSpeed = { x: 0, y: 0, z: 0 };
-  private _gyroBias = { alpha: 0, beta: 0, gamma: 0 };
-  private _gyroSampleCount = 0;
-  private _accelerometerBias = { x: 0, y: 0, z: 0 };
-  private _accelerometerSampleCount = 0;
+
+  private _positionChange: DevicePositionModel = {
+    x: 0,
+    y: 0,
+    z: 0,
+    orientation: {
+      alpha: 0,
+      beta: 0,
+      gamma: 0,
+    },
+  };
 
   // Kalman filters for each axis
   private _kalmanX = new KalmanFilter();
   private _kalmanY = new KalmanFilter();
   private _kalmanZ = new KalmanFilter();
 
-  // Variables to store orientation angles
-  private _orientation = {
-    alpha: 0, // rotation around Z axis (0 to 360 degrees)
-    beta: 0,  // rotation around X axis (-180 to 180 degrees)
-    gamma: 0  // rotation around Y axis (-90 to 90 degrees)
-  };
+  private observers: Array<(devicePosition: DevicePositionModel) => Promise<void>> = [];
 
+  constructor() {
+    // Bind methods to the instance
+    this.handleOrientation = this.handleOrientation.bind(this);
+    this.handleMotion = this.handleMotion.bind(this);
+  }
+
+  // Allow external consumers to register for updates
+  subscribe(callback: (devicePosition: DevicePositionModel) => Promise<void>) {
+    this.observers.push(callback);
+  }
 
   async requestPermissions() {
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
       try {
         const permissionState = await DeviceMotionEvent.requestPermission();
-        if (permissionState === 'granted') {
-        } else {
+        if (permissionState !== 'granted') {
           alert("Permission to access device motion was denied.");
         }
       } catch (e) {
@@ -38,8 +48,7 @@ export class DevicePositionService {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
       try {
         const permissionState = await DeviceOrientationEvent.requestPermission();
-        if (permissionState === 'granted') {
-        } else {
+        if (permissionState !== 'granted') {
           alert("Permission to access device orientation was denied.");
         }
       } catch (e) {
@@ -58,26 +67,26 @@ export class DevicePositionService {
     window.removeEventListener('devicemotion', this.handleMotion);
   }
 
-  startGyroCalibration() {
-    this._gyroBias = { alpha: 0, beta: 0, gamma: 0 };
-    this._gyroSampleCount = 0;
-    window.addEventListener('deviceorientation', this.calibrateGyroscope);
-  };
-
-  startAccelerometerCalibration() {
-    this._accelerometerBias = { x: 0, y: 0, z: 0 };
-    this._accelerometerSampleCount = 0;
-    window.addEventListener('devicemotion', this.calibrateAccelerometer);
-  };
-
   handleMotion(event: DeviceMotionEvent) {
     const deltaTime = event.interval / 1000; // Convert ms to seconds
+    const minimumAcceleration = 0.1; // Minimum acceleration to consider for integration
 
     if (event.acceleration && event.acceleration.x !== null && event.acceleration.y !== null && event.acceleration.z !== null) {
+      let effectiveX = event.acceleration.x;
+      let effectiveY = event.acceleration.y;
+      let effectiveZ = event.acceleration.z;
 
-      const effectiveX = event.acceleration.x - this._accelerometerBias.x;
-      const effectiveY = event.acceleration.y - this._accelerometerBias.y;
-      const effectiveZ = event.acceleration.z - this._accelerometerBias.z;
+      if (effectiveX < minimumAcceleration && effectiveX > -minimumAcceleration) {
+        effectiveX = 0;
+      }
+
+      if (effectiveY < minimumAcceleration && effectiveY > -minimumAcceleration) {
+        effectiveY = 0;
+      }
+
+      if (effectiveZ < minimumAcceleration && effectiveZ > -minimumAcceleration) {
+        effectiveZ = 0;
+      }
 
       // Apply Kalman filter to smooth acceleration data
       const filteredAx = this._kalmanX.filter(effectiveX);
@@ -85,14 +94,23 @@ export class DevicePositionService {
       const filteredAz = this._kalmanZ.filter(effectiveZ);
 
       // Transform filtered acceleration data based on device orientation
+      /*
       const adjustedAcceleration = this.transformAcceleration(
         filteredAx,
         filteredAy,
         filteredAz,
-        this._orientation.alpha,
-        this._orientation.beta,
-        this._orientation.gamma
+        this._positionChange.orientation.alpha,
+        this._positionChange.orientation.beta,
+        this._positionChange.orientation.gamma
       );
+      */
+
+      const adjustedAcceleration = {
+        x: filteredAx,
+        y: filteredAy,
+        z: filteredAz
+      };
+
 
       // Integrate filtered acceleration to get velocity
       this._currentSpeed.x += adjustedAcceleration.x * deltaTime;
@@ -101,51 +119,46 @@ export class DevicePositionService {
 
       // Convert speed to position change
       const earthRadius = 6371000; // Radius of Earth in meters
-      _latitude.value += (_currentSpeed.x * deltaTime / earthRadius) * (180 / Math.PI);
-      _longitude.value += (_currentSpeed.y * deltaTime / (earthRadius * Math.cos(_latitude.value * Math.PI / 180))) * (180 / Math.PI);
-      _altitude.value += _currentSpeed.z * deltaTime;
-    }
-  };
 
-  handleOrientation(event: DeviceOrientationEvent) {
-    this._orientation.alpha = event.alpha || 0;
-    this._orientation.beta = event.beta || 0;
-    this._orientation.gamma = event.gamma || 0;
-
-    // Apply gyroscope calibration
-    this._orientation.alpha -= this._gyroBias.alpha;
-    this._orientation.beta -= this._gyroBias.beta;
-    this._orientation.gamma -= this._gyroBias.gamma;
-  };
-
-
-  private calibrateGyroscope(event: DeviceOrientationEvent) {
-    this._gyroBias.alpha += event.alpha || 0;
-    this._gyroBias.beta += event.beta || 0;
-    this._gyroBias.gamma += event.gamma || 0;
-    this._gyroSampleCount++;
-
-    if (this._gyroSampleCount >= 100) { // Adjust sample count as needed
-      this._gyroBias.alpha /= this._gyroSampleCount;
-      this._gyroBias.beta /= this._gyroSampleCount;
-      this._gyroBias.gamma /= this._gyroSampleCount;
-      window.removeEventListener('deviceorientation', this.calibrateGyroscope);
-      console.log("Gyroscope calibration complete:", this._gyroBias);
+      this._positionChange.x = (this._currentSpeed.x * deltaTime) * (180 / Math.PI) * earthRadius;
+      this._positionChange.y = (this._currentSpeed.y * deltaTime) * (180 / Math.PI) * earthRadius;
+      this._positionChange.z = (this._currentSpeed.z * deltaTime) * (180 / Math.PI) * earthRadius;
     }
   }
 
-  private calibrateAccelerometer(event: DeviceMotionEvent) {
-    this._accelerometerBias.x += event.accelerationIncludingGravity?.x || 0;
-    this._accelerometerBias.y += event.accelerationIncludingGravity?.y || 0;
-    this._accelerometerBias.z += event.accelerationIncludingGravity?.z || 0;
-    this._accelerometerSampleCount++;
+  handleOrientation(event: DeviceOrientationEvent) {
+    const alpha = event.alpha || 0;
+    const beta = event.beta || 0;
+    const gamma = event.gamma || 0;
 
-    if (this._accelerometerSampleCount >= 100) { // Adjust sample count as needed
-      this._accelerometerBias.x /= this._accelerometerSampleCount;
-      this._accelerometerBias.y /= this._accelerometerSampleCount;
-      this._accelerometerBias.z /= this._accelerometerSampleCount;
-      window.removeEventListener('devicemotion', this.calibrateAccelerometer);
-      console.log("Accelerometer calibration complete:", this._accelerometerBias);
+    // Apply gyroscope calibration
+    this._positionChange.orientation.alpha = alpha;
+    this._positionChange.orientation.beta = beta;
+    this._positionChange.orientation.gamma = gamma;
+
+    // Notify observers of the updated position change
+    this.notifyObservers();
+  }
+
+  resetPosition() {
+    this._currentSpeed = { x: 0, y: 0, z: 0 };
+    this._positionChange = {
+      x: 0,
+      y: 0,
+      z: 0,
+      orientation: {
+        alpha: 0,
+        beta: 0,
+        gamma: 0,
+      },
+    };
+
+    this.notifyObservers();
+  }
+
+  private async notifyObservers() {
+    for (const observer of this.observers) {
+      await observer(this._positionChange);
     }
   }
 
@@ -169,6 +182,5 @@ export class DevicePositionService {
     const adjustedAz = ax * (sinBeta) + ay * (-sinAlpha * cosBeta) + az * (cosAlpha * cosBeta);
 
     return { x: adjustedAx, y: adjustedAy, z: adjustedAz };
-  };
-
+  }
 }

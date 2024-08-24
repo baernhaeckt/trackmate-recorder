@@ -1,3 +1,4 @@
+import type { UploadPictureModel } from "@/models/upload-picture-model";
 
 
 export class ImageCaptureService {
@@ -57,8 +58,33 @@ export class ImageCaptureService {
     this._context = undefined;
   }
 
-  extractImage(): ImageData {
-    return this._context!.getImageData(0, 0, this._canvasElement.width, this._canvasElement.height);
-  }
+  extractImage(): UploadPictureModel {
+    // Create an offscreen canvas where the original image will be drawn
+    const originalCanvas = document.createElement('canvas');
+    originalCanvas.width = this._canvasElement.width;
+    originalCanvas.height = this._canvasElement.height;
+    const originalContext = originalCanvas.getContext('2d');
 
+    // Draw the existing canvas's content on the offscreen canvas
+    originalContext!.drawImage(this._canvasElement, 0, 0);
+
+    // Create another canvas to perform the resize operation
+    const resizedCanvas = document.createElement('canvas');
+    resizedCanvas.width = 256;  // target width
+    resizedCanvas.height = 256; // target height
+    const resizedContext = resizedCanvas.getContext('2d');
+
+    // Draw the image on the resized canvas, scaling it
+    resizedContext!.drawImage(originalCanvas, 0, 0, 256, 256);
+
+    // Get the image data from the resized canvas as compressed jpeg
+    const dataUrl = resizedCanvas.toDataURL('image/jpeg', 0.7);
+
+    return {
+      TrackNodeId: null,
+      ImageDataBase64: dataUrl.replace('data:image/jpeg;base64,', ''),
+      ImageData: resizedContext!.getImageData(0, 0, 256, 256),
+      MimeType: 'image/jpeg'
+    };
+  }
 }
