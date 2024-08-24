@@ -36,7 +36,7 @@ export default defineComponent({
 
       if (imageCaptureService) {
         const image = imageCaptureService.extractImage();
-        await webSocketService.trackNode(position.value.latitude, position.value.longitude, position.value.altitude, image, true);
+        await webSocketService.trackNode(position.value.latitude, position.value.longitude, position.value.altitude, image);
       }
     });
 
