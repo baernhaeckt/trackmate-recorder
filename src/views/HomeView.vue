@@ -72,22 +72,30 @@ export default defineComponent({
     const devicePositionEnabled = ref(false);
     const newPosition = ref("");
     const lastError = ref("");
+    const isUploadInProgress = ref(false);
 
     const uploadData = async () => {
+      if (isUploadInProgress.value) {
+        return;
+      }
+
       if (imageCaptureService) {
         try {
+          isUploadInProgress.value = true;
           const image = imageCaptureService.extractImage();
           const transmittedImage = document.getElementById("transmitted") as HTMLCanvasElement;
           const context = transmittedImage.getContext("2d")
           context!.putImageData(image.imageData!, 0, 0);
           delete image.imageData;
 
-          previousNode.value = await webSocketService.trackNode(previousNode?.id, position.value.latitude, position.value.longitude, position.value.altitude, image);
+          previousNode.value = await webSocketService.trackNode(previousNode.value?.id ?? null, position.value.latitude, position.value.longitude, position.value.altitude, image);
           succeededUploads.value++;
         } catch (error: any) {
           console.error(error);
           failedUploads.value++;
           lastError.value = error.message;
+        } finally {
+          isUploadInProgress.value = false;
         }
       }
     }

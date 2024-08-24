@@ -6,5 +6,5 @@ export interface CreateTrackNodeModel {
   Location: GeoLocation,
   Vector: TransformationVector,
   Orientation: Orientation,
-  previousTrackNodeId: string,
+  previousTrackNodeId: string | null,
 }
