@@ -1,110 +1,93 @@
 <template>
-  <main>
-    <div>
-      <h1>Geolocation and Sensor Tracking</h1>
-      <p>Latitude: {{ latitude }}</p>
-      <p>Longitude: {{ longitude }}</p>
-      <p>Distance Travelled: {{ distance }} meters</p>
-      <h2>Sensor Data</h2>
-      <p>Acceleration X: {{ accelerationX }}</p>
-      <p>Acceleration Y: {{ accelerationY }}</p>
-      <p>Acceleration Z: {{ accelerationZ }}</p>
-      <p>Rotation Rate Alpha: {{ rotationRateAlpha }}</p>
-      <p>Rotation Rate Beta: {{ rotationRateBeta }}</p>
-      <p>Rotation Rate Gamma: {{ rotationRateGamma }}</p>
+  <main class="main">
+    <canvas id="video" class="video-container" width="640" height="480"></canvas>
+    <div class="overlay">
+      <p>LatLong: {{ position.latitude.toFixed(6) }} / {{ position.longitude.toFixed(6) }}</p>
+      <p>Altitude: {{ position.altitude.toFixed(2) }}</p>
+      <p>Last update: {{ lastUpdate }}</p>
     </div>
   </main>
 </template>
 
 <script lang="ts">
+import { ImageCaptureService } from "@/services/image-capture-service";
+import { PositionService } from "@/services/position-service";
+import { WebSocketService } from "@/services/websocket-service";
 import { defineComponent, onMounted, onUnmounted, ref } from "vue";
 
 export default defineComponent({
   setup() {
-    const latitude = ref(0);
-    const longitude = ref(0);
-    const distance = ref(0);
+    const webSocketService = new WebSocketService(import.meta.env.VITE_BACKEND_WEBSOCKET_URL);
+    webSocketService.connect();
+    let imageCaptureService: ImageCaptureService;
+    const positionService = new PositionService();
+    positionService.watchPosition();
 
-    const accelerationX = ref(0);
-    const accelerationY = ref(0);
-    const accelerationZ = ref(0);
-    const rotationRateAlpha = ref(0);
-    const rotationRateBeta = ref(0);
-    const rotationRateGamma = ref(0);
+    const position = ref({
+      latitude: 0,
+      longitude: 0,
+      altitude: 0,
+    });
+    const lastUpdate = ref("");
 
-    let lastLatitude = ref(0);
-    let lastLongitude = ref(0);
+    positionService.subscribe(async (p, lastUpdated) => {
+      position.value = p;
+      lastUpdate.value = lastUpdated.toLocaleTimeString();
 
-    const watchId = navigator.geolocation.watchPosition((position) => {
-      latitude.value = position.coords.latitude;
-      longitude.value = position.coords.longitude;
-
-      if (lastLatitude.value && lastLongitude.value) {
-        distance.value += calculateDistance(
-          lastLatitude.value,
-          lastLongitude.value,
-          latitude.value,
-          longitude.value
-        );
+      if (imageCaptureService) {
+        const image = imageCaptureService.extractImage();
+        await webSocketService.trackNode(position.value.latitude, position.value.longitude, position.value.altitude, image, true);
       }
-
-      lastLatitude.value = latitude.value;
-      lastLongitude.value = longitude.value;
     });
 
-    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-      const R = 6371e3; // Earth's radius in meters
-      const φ1 = (lat1 * Math.PI) / 180;
-      const φ2 = (lat2 * Math.PI) / 180;
-      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-      const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-      const a =
-        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) *
-        Math.cos(φ2) *
-        Math.sin(Δλ / 2) *
-        Math.sin(Δλ / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      const distance = R * c; // in meters
-      return distance;
-    };
-
-    const handleMotion = (event: DeviceMotionEvent) => {
-      if (event.acceleration) {
-        accelerationX.value = event.acceleration.x || 0;
-        accelerationY.value = event.acceleration.y || 0;
-        accelerationZ.value = event.acceleration.z || 0;
-      }
-
-      if (event.rotationRate) {
-        rotationRateAlpha.value = event.rotationRate.alpha || 0;
-        rotationRateBeta.value = event.rotationRate.beta || 0;
-        rotationRateGamma.value = event.rotationRate.gamma || 0;
-      }
-    };
-
-    onMounted(() => {
-      window.addEventListener("devicemotion", handleMotion);
+    onMounted(async () => {
+      const video = document.getElementById("video") as HTMLCanvasElement;
+      imageCaptureService = new ImageCaptureService(video);
+      imageCaptureService.requestPermissions();
+      imageCaptureService.startCapture();
     });
 
-    onUnmounted(() => {
-      window.removeEventListener("devicemotion", handleMotion);
-      navigator.geolocation.clearWatch(watchId);
+    onUnmounted(async () => {
+      imageCaptureService.stopCapture();
+      positionService.clearWatch();
+      webSocketService.disconnect();
     });
 
     return {
-      latitude,
-      longitude,
-      distance,
-      accelerationX,
-      accelerationY,
-      accelerationZ,
-      rotationRateAlpha,
-      rotationRateBeta,
-      rotationRateGamma,
+      position,
+      lastUpdate,
     };
+  },
+  methods: {
+    formatFloat(value: number, decimals: number): string {
+      return value.toFixed(decimals);
+    },
   },
 });
 </script>
+
+<style scoped>
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  font-size: 1.5rem;
+  z-index: 1;
+}
+
+.video-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+
+  z-index: 0;
+}
+</style>
