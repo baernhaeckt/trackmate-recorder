@@ -1,5 +1,6 @@
 
 import type { CreateTrackNodeModel } from "@/models/create-track-node-model";
+import type { DevicePositionModel } from "@/models/device-position-model";
 import type { TrackNodeModel } from "@/models/track-node-model";
 import type { UploadPictureModel } from "@/models/upload-picture-model";
 import * as signalR from "@microsoft/signalr";
@@ -24,7 +25,7 @@ export class WebSocketService {
     await this._trackNodeHub?.stop();
   }
 
-  async trackNode(previousTrackNodeId: string | null, lat: number, lon: number, alt: number, image: UploadPictureModel) {
+  async trackNode(previousTrackNodeId: string | null, geoPosition: { latitude: number; longitude: number; altitude: number }, devicePosition: DevicePositionModel, image: UploadPictureModel) {
     if (!this._trackNodeHub || this._trackNodeHub.state !== signalR.HubConnectionState.Connected) {
       throw new Error("The WebSocket connection is not yet established.");
     }
@@ -32,9 +33,9 @@ export class WebSocketService {
     const createTrackNodeModel: CreateTrackNodeModel = {
       previousTrackNodeId: previousTrackNodeId,
       Location: {
-        latitude: lat,
-        longitude: lon,
-        altitude: alt
+        latitude: geoPosition.latitude,
+        longitude: geoPosition.longitude,
+        altitude: geoPosition.altitude
       },
       Vector: {
         x: 0,
@@ -42,9 +43,9 @@ export class WebSocketService {
         z: 0
       },
       Orientation: {
-        alpha: 0,
-        beta: 0,
-        gamma: 0
+        alpha: devicePosition?.orientation.alpha ?? 0,
+        beta: devicePosition?.orientation.beta ?? 0,
+        gamma: devicePosition?.orientation.gamma ?? 0
       }
     };
 

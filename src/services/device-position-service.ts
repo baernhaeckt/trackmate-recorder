@@ -12,7 +12,7 @@ export class DevicePositionService {
       alpha: 0,
       beta: 0,
       gamma: 0,
-    },
+    }
   };
 
   // Kalman filters for each axis
@@ -123,6 +123,9 @@ export class DevicePositionService {
       this._positionChange.x = (this._currentSpeed.x * deltaTime) * (180 / Math.PI) * earthRadius;
       this._positionChange.y = (this._currentSpeed.y * deltaTime) * (180 / Math.PI) * earthRadius;
       this._positionChange.z = (this._currentSpeed.z * deltaTime) * (180 / Math.PI) * earthRadius;
+
+      // Notify observers of the updated position change
+      this.notifyObservers();
     }
   }
 
@@ -150,7 +153,7 @@ export class DevicePositionService {
         alpha: 0,
         beta: 0,
         gamma: 0,
-      },
+      }
     };
 
     this.notifyObservers();

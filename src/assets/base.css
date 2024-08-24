@@ -55,8 +55,6 @@
 *::after {
   box-sizing: border-box;
   margin: 0;
-  font-weight: normal;
-  font-size: 14px;
 }
 
 body {
@@ -84,4 +82,14 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+p {
+  font-weight: normal;
+  font-size: 14px;
+  margin-bottom: .1rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 .3rem;
 }
