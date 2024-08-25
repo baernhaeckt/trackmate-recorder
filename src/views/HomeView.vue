@@ -23,8 +23,9 @@
 
         <div class="button-list">
           <button @click="toggleEnableUpload"><template v-if="uploadEnabled">Disable upload</template><template v-else>Enable upload</template></button>
-          <button @click="triggerUpload">Trigger Upload</button>
-          <button v-if="devicePositionEnabled" @click="resetDevicePosition">Reset Device Position</button>
+          <button @click="triggerUpload">Trigger</button>
+          <button v-if="devicePositionEnabled" @click="resetDevicePosition">Reset Position</button>
+          <button v-if="devicePositionEnabled" @click="trackStep">Track Step</button>
         </div>
         <canvas id="transmitted" class="transmit-container" width="256" height="256"></canvas>
       </div>
@@ -77,6 +78,7 @@ export default defineComponent({
     const lastError = ref("");
     const isUploadInProgress = ref(false);
     const uploadEnabled = ref(false);
+    const gpsUpdatesEnabled = ref(true);
 
     const uploadData = async () => {
       if (isUploadInProgress.value) {
@@ -112,7 +114,14 @@ export default defineComponent({
     }
 
     positionService.subscribe(async (p, lastUpdated) => {
-      position.value = p;
+      if (!gpsUpdatesEnabled.value) {
+        return;
+      }
+
+      position.value.latitude = p.latitude;
+      position.value.longitude = p.longitude;
+      position.value.altitude = p.altitude;
+
       lastUpdate.value = lastUpdated.toLocaleTimeString();
 
       uploadData();
@@ -139,6 +148,32 @@ export default defineComponent({
 
     const toggleEnableUpload = () => {
       uploadEnabled.value = !uploadEnabled.value;
+    }
+
+    const trackStep = () => {
+      gpsUpdatesEnabled.value = false;
+
+      const { latitude, longitude, altitude } = position.value;
+      const orientation = devicePosition.value.orientation;
+      const stepLengthInMeters = 0.76;
+
+      // Convert alpha from degrees to radians
+      const alpha = orientation.alpha * (Math.PI / 180);
+
+      // Earth radius in meters
+      const earthRadius = 6378137;
+
+      // Calculate change in latitude
+      const deltaLat = (stepLengthInMeters * Math.cos(alpha)) / earthRadius;
+      // Calculate change in longitude
+      const deltaLon = (stepLengthInMeters * Math.sin(alpha)) / (earthRadius * Math.cos(latitude * Math.PI / 180));
+
+      // Update latitude and longitude in degrees
+      position.value.latitude = latitude + (deltaLat * 180 / Math.PI);
+      position.value.longitude = longitude + (deltaLon * 180 / Math.PI);
+      position.value.altitude = altitude;  // z is 0, so altitude remains the same
+
+      uploadData();
     }
 
     onMounted(async () => {
@@ -168,7 +203,8 @@ export default defineComponent({
       enableDevicePosition,
       resetDevicePosition,
       triggerUpload,
-      toggleEnableUpload
+      toggleEnableUpload,
+      trackStep,
     };
   },
   methods: {
@@ -233,6 +269,7 @@ export default defineComponent({
   flex-direction: row;
   justify-content: stretch;
   margin-top: 20px;
+  width: 100%;
 }
 
 .button-list button {
@@ -243,12 +280,22 @@ export default defineComponent({
   border: none;
   border-radius: 0;
   cursor: pointer;
+
+  flex-grow: 1;
 }
 
 .button-list button:first-child {
   background-color: #28a745;
   border-top-left-radius: 5px;
   border-bottom-left-radius: 5px;
+}
+
+.button-list button:nth-child(2) {
+  background-color: #007bff;
+}
+
+.button-list button:nth-child(3) {
+  background-color: #ffc107;
 }
 
 .button-list button:last-child {
