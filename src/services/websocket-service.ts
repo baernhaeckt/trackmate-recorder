@@ -16,6 +16,7 @@ export class WebSocketService {
   async connect() {
     this._trackNodeHub = new signalR.HubConnectionBuilder()
       .withUrl(this._trackNodeHubUrl)
+      .withAutomaticReconnect()
       .build();
 
     await this._trackNodeHub.start();
